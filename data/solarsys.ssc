@@ -1,0 +1,236 @@
+# Solar System Catalog for Kosmos (simplified)
+
+"Sun" "Sol" {
+    Radius 696000
+    Texture "sun.*"
+}
+
+"Mercury" "Sol" {
+    Radius 2440
+    EllipticalOrbit {
+        Period 87.969
+        SemiMajorAxis 0.387
+        Eccentricity 0.2056
+        Inclination 7.005
+        AscendingNode 48.331
+        ArgOfPericenter 29.124
+        MeanAnomaly 174.796
+    }
+    RotationPeriod 1407.6
+    Obliquity 0.01
+}
+
+"Venus" "Sol" {
+    Radius 6051.8
+    EllipticalOrbit {
+        Period 224.701
+        SemiMajorAxis 0.723
+        Eccentricity 0.0068
+        Inclination 3.3947
+        AscendingNode 76.680
+        ArgOfPericenter 54.884
+        MeanAnomaly 50.115
+    }
+    RotationPeriod -5832.5
+    Obliquity 177.36
+}
+
+"Earth" "Sol" {
+    Radius 6371
+    EllipticalOrbit {
+        Period 365.25
+        SemiMajorAxis 1.000
+        Eccentricity 0.0167
+        Inclination 0.000
+        AscendingNode 348.739
+        ArgOfPericenter 114.207
+        MeanAnomaly 358.617
+    }
+    RotationPeriod 23.9345
+    Obliquity 23.44
+}
+
+"Moon" "Earth" {
+    Radius 1737.4
+    EllipticalOrbit {
+        Period 27.322
+        SemiMajorAxis 0.00257
+        Eccentricity 0.0549
+        Inclination 5.145
+        AscendingNode 125.08
+        ArgOfPericenter 318.15
+        MeanAnomaly 135.27
+    }
+    RotationPeriod 655.728
+    Obliquity 6.68
+}
+
+"Mars" "Sol" {
+    Radius 3389.5
+    EllipticalOrbit {
+        Period 686.980
+        SemiMajorAxis 1.524
+        Eccentricity 0.0934
+        Inclination 1.850
+        AscendingNode 49.558
+        ArgOfPericenter 286.502
+        MeanAnomaly 19.412
+    }
+    RotationPeriod 24.6229
+    Obliquity 25.19
+}
+
+"Phobos" "Mars" {
+    Radius 11.1
+    EllipticalOrbit {
+        Period 0.319
+        SemiMajorAxis 0.000063
+        Eccentricity 0.015
+        Inclination 1.08
+    }
+}
+
+"Deimos" "Mars" {
+    Radius 6.2
+    EllipticalOrbit {
+        Period 1.262
+        SemiMajorAxis 0.000156
+        Eccentricity 0.0002
+        Inclination 1.79
+    }
+}
+
+"Jupiter" "Sol" {
+    Radius 69911
+    EllipticalOrbit {
+        Period 4332.59
+        SemiMajorAxis 5.203
+        Eccentricity 0.0484
+        Inclination 1.305
+        AscendingNode 100.556
+        ArgOfPericenter 275.066
+        MeanAnomaly 19.895
+    }
+    RotationPeriod 9.925
+    Obliquity 3.13
+}
+
+"Io" "Jupiter" {
+    Radius 1821.6
+    EllipticalOrbit {
+        Period 1.769
+        SemiMajorAxis 0.00282
+        Eccentricity 0.0041
+        Inclination 0.04
+    }
+}
+
+"Europa" "Jupiter" {
+    Radius 1560.8
+    EllipticalOrbit {
+        Period 3.551
+        SemiMajorAxis 0.00449
+        Eccentricity 0.0094
+        Inclination 0.47
+    }
+}
+
+"Ganymede" "Jupiter" {
+    Radius 2634.1
+    EllipticalOrbit {
+        Period 7.155
+        SemiMajorAxis 0.00716
+        Eccentricity 0.0011
+        Inclination 0.18
+    }
+}
+
+"Callisto" "Jupiter" {
+    Radius 2410.3
+    EllipticalOrbit {
+        Period 16.689
+        SemiMajorAxis 0.0126
+        Eccentricity 0.0074
+        Inclination 0.19
+    }
+}
+
+"Saturn" "Sol" {
+    Radius 58232
+    EllipticalOrbit {
+        Period 10759.22
+        SemiMajorAxis 9.537
+        Eccentricity 0.0539
+        Inclination 2.485
+        AscendingNode 113.715
+        ArgOfPericenter 336.013
+        MeanAnomaly 317.020
+    }
+    RotationPeriod 10.656
+    Obliquity 26.73
+}
+
+"Titan" "Saturn" {
+    Radius 2574.7
+    EllipticalOrbit {
+        Period 15.945
+        SemiMajorAxis 0.00817
+        Eccentricity 0.0288
+        Inclination 0.33
+    }
+}
+
+"Uranus" "Sol" {
+    Radius 25362
+    EllipticalOrbit {
+        Period 30688.5
+        SemiMajorAxis 19.19
+        Eccentricity 0.0473
+        Inclination 0.770
+        AscendingNode 74.006
+        ArgOfPericenter 96.998
+        MeanAnomaly 142.238
+    }
+    RotationPeriod -17.24
+    Obliquity 97.77
+}
+
+"Neptune" "Sol" {
+    Radius 24622
+    EllipticalOrbit {
+        Period 60182
+        SemiMajorAxis 30.07
+        Eccentricity 0.0086
+        Inclination 1.770
+        AscendingNode 131.784
+        ArgOfPericenter 276.337
+        MeanAnomaly 256.228
+    }
+    RotationPeriod 16.11
+    Obliquity 28.32
+}
+
+"Triton" "Neptune" {
+    Radius 1353.4
+    EllipticalOrbit {
+        Period 5.877
+        SemiMajorAxis 0.00236
+        Eccentricity 0.000016
+        Inclination 157.345
+    }
+}
+
+"Pluto" "Sol" {
+    Radius 1188.3
+    EllipticalOrbit {
+        Period 90560
+        SemiMajorAxis 39.48
+        Eccentricity 0.2488
+        Inclination 17.16
+        AscendingNode 110.299
+        ArgOfPericenter 113.834
+        MeanAnomaly 14.860
+    }
+    RotationPeriod -153.293
+    Obliquity 119.59
+}
