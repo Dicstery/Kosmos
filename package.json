@@ -1,0 +1,11 @@
+{
+  "name": "kosmos",
+  "version": "1.0.0",
+  "description": "Kosmos – 3D solar system and galaxy simulator",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Dicstery",
+  "license": "MIT"
+}
