@@ -9,7 +9,6 @@
     * { margin: 0; padding: 0; }
     html, body { overflow: hidden; font-family: 'Trispace', sans-serif; background: black; }
     canvas { display: block; }
-
     #loading {
       position: fixed; display: flex; width: 100%; height: 100%;
       color: white; justify-content: center; align-items: center;
@@ -37,7 +36,6 @@
       opacity: 0; animation: fadeIn 2s ease-in-out 2.5s forwards;
     }
     #loader-circle svg { animation: pulse 2s ease-in-out 4.5s infinite; }
-
     .planet-info {
       display: none; position: fixed; left: 1%; top: 25%; width: 30%; z-index: 20;
     }
@@ -52,7 +50,6 @@
     .close-btn:hover, .close-btn:focus { color: white; cursor: pointer; }
     h2 { color: lightyellow; }
     p { color: white; line-height: 1.5; }
-
     .btn-group {
       display: flex; position: absolute; top: 20px; justify-content: center;
       width: 100%; gap: 12px; fill: white; z-index: 10;
@@ -63,27 +60,26 @@
       transition: background 0.2s;
     }
     .btn-group button:hover { background: rgba(255,255,255,0.2); }
-
     #search-container {
       position: absolute; top: 80px; left: 20px; z-index: 20;
       display: flex; flex-direction: column; gap: 4px;
     }
     #search-input {
-      width: 200px; padding: 6px 10px; border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.7);
-      color: white; font-size: 0.9rem; outline: none;
+      width: 220px; padding: 8px 12px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.75);
+      color: white; font-size: 0.95rem; outline: none;
     }
     #search-input::placeholder { color: rgba(255,255,255,0.5); }
     #autocomplete-list {
-      list-style: none; background: rgba(0,0,0,0.8); border-radius: 8px;
-      overflow-y: auto; max-height: 150px; width: 200px;
+      list-style: none; background: rgba(0,0,0,0.8); border-radius: 10px;
+      overflow-y: auto; max-height: 200px; width: 220px;
       display: none; margin-top: 2px;
     }
     .autocomplete-item {
-      padding: 4px 8px; color: white; cursor: pointer;
-      font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 10px; color: white; cursor: pointer;
+      font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .autocomplete-item:hover { background: rgba(255,255,255,0.2); }
+    .autocomplete-item:hover { background: rgba(255,255,255,0.25); }
   </style>
 </head>
 <body>
@@ -168,8 +164,9 @@
     const loadingScreen = document.getElementById('loading');
 
     let starsPointCloud = null;
-    let starNames = [];
     let starNameToHip = {};
+    let hipToStarIndex = {};
+    let starSearchList = [];
 
     function updateProgress(percent, text = null) {
       progressBar.textContent = percent + '%';
@@ -526,51 +523,55 @@
           const hipId = trimmed.substring(0, colonIndex).trim();
           const name = trimmed.substring(colonIndex + 1).trim();
           if (name && hipId) {
-            starNames.push({ name: name.toLowerCase(), original: name, hip: hipId });
             starNameToHip[name.toLowerCase()] = hipId;
+            starSearchList.push({ name: name.toLowerCase(), original: name, type: 'star', hip: hipId });
           }
         }
-        updateProgress(30, 'Имена загружены');
+        updateProgress(10, 'Имена загружены');
       } catch (err) {
         console.error('Имена не загружены:', err);
-        updateProgress(30, 'Без имён');
+        updateProgress(10, 'Без имён');
       }
     }
 
     async function loadStarCatalog() {
       try {
         await loadStarNames();
-        const partNames = ['data/stars1.dat', 'data/stars2.dat', 'data/stars3.dat'];
+        const partNames = ['data/stars1.csv', 'data/stars2.csv'];
         let combinedText = '';
         for (let i = 0; i < partNames.length; i++) {
-          const progress = 30 + Math.round((i / partNames.length) * 60);
+          const progress = 10 + Math.round((i / partNames.length) * 70);
           updateProgress(progress, `Загрузка части ${i+1}...`);
           const resp = await fetch(partNames[i]);
           if (!resp.ok) throw new Error(`Ошибка загрузки ${partNames[i]}`);
           combinedText += await resp.text();
         }
-        updateProgress(95, 'Парсинг звёзд...');
+        updateProgress(85, 'Парсинг звёзд...');
         const positions = [];
         const colors = [];
         const lines = combinedText.split('\n');
+        let starIndex = 0;
         for (let line of lines) {
           line = line.trim();
           if (line.startsWith('id,') || line === '') continue;
           const cols = line.split(',');
-          if (cols.length < 8) continue;
-          const ra = parseFloat(cols[1]);
-          const dec = parseFloat(cols[2]);
-          const dist = parseFloat(cols[3]);
-          const mag = parseFloat(cols[4]);
-          if (isNaN(ra) || isNaN(dec) || isNaN(dist) || isNaN(mag)) continue;
-          const raRad = ra * Math.PI / 180;
-          const decRad = dec * Math.PI / 180;
-          const x = dist * Math.cos(decRad) * Math.cos(raRad);
-          const y = dist * Math.sin(decRad);
-          const z = dist * Math.cos(decRad) * Math.sin(raRad);
+          if (cols.length < 18) continue;
+          const hip = cols[1]?.trim();
+          const ra = parseFloat(cols[17]);
+          const dec = parseFloat(cols[18]);
+          const dist = parseFloat(cols[19]);
+          const mag = parseFloat(cols[20]);
+          const x = parseFloat(cols[21]);
+          const y = parseFloat(cols[22]);
+          const z = parseFloat(cols[23]);
+          if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(mag)) continue;
           positions.push(x, y, z);
-          const brightness = Math.max(0.2, 1.0 - mag / 10.0);
+          const brightness = Math.max(0.15, 1.0 - mag / 10.0);
           colors.push(brightness, brightness * 0.9, brightness * 0.7);
+          if (hip && starNameToHip[hip]) {
+            hipToStarIndex[hip] = starIndex;
+          }
+          starIndex++;
         }
         if (positions.length === 0) throw new Error('Нет данных звёзд');
         const geom = new THREE.BufferGeometry();
@@ -635,10 +636,7 @@
         type: 'planet'
       }));
 
-      const allTargets = [
-        ...planetNames,
-        ...starNames.map(s => ({ ...s, type: 'star' }))
-      ];
+      const allTargets = [...planetNames, ...starSearchList];
 
       searchInput.addEventListener('input', () => {
         const query = searchInput.value.toLowerCase().trim();
@@ -646,7 +644,7 @@
           autocompleteList.style.display = 'none';
           return;
         }
-        const matches = allTargets.filter(t => t.name.startsWith(query)).slice(0, 10);
+        const matches = allTargets.filter(t => t.name.startsWith(query)).slice(0, 12);
         if (matches.length === 0) {
           autocompleteList.style.display = 'none';
           return;
@@ -703,8 +701,17 @@
         }
       } else if (target.type === 'star') {
         const hipId = target.hip;
-        console.log('Летим к звезде:', target.original, 'HIP:', hipId);
-        alert('Полёт к звезде ' + target.original + ' (HIP ' + hipId + ') будет реализован после привязки HIP к координатам');
+        const starIdx = hipToStarIndex[hipId];
+        if (starIdx !== undefined && starsPointCloud) {
+          const positions = starsPointCloud.geometry.attributes.position.array;
+          const idx = starIdx * 3;
+          const starPos = new THREE.Vector3(positions[idx], positions[idx+1], positions[idx+2]);
+          controls.target.copy(starPos);
+          targetCameraPosition.copy(starPos).add(camera.position.clone().sub(starPos).normalize().multiplyScalar(starPos.length() * 0.5 + 10));
+          isMovingTowardsPlanet = true;
+          selectedPlanet = target.original;
+          closeInfoNoZoomOut();
+        }
       }
     }
 
