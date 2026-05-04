@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Kosmos – Real Stars</title>
+  <title>Kosmos — Celestia Real Stars</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <style>
     * { margin: 0; padding: 0; }
@@ -136,7 +136,6 @@
         "three/examples/jsm/postprocessing/EffectComposer.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js",
         "three/examples/jsm/postprocessing/UnrealBloomPass.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js",
         "three/examples/jsm/postprocessing/RenderPass.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js",
-        "three/examples/jsm/postprocessing/OutlinePass.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutlinePass.js",
         "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
         "three/examples/jsm/renderers/CSS2DRenderer.js": "https://unpkg.com/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js"
       }
@@ -149,7 +148,6 @@
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
     import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
     import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-    import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
     import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
@@ -164,6 +162,7 @@
     const loadingScreen = document.getElementById('loading');
 
     let starsPointCloud = null;
+    let glarePointCloud = null;
     let starNameToHip = {};
     let hipToStarIndex = {};
     let starSearchList = [];
@@ -200,15 +199,13 @@
     document.body.appendChild(labelRenderer.domElement);
 
     const composer = new EffectComposer(renderer);
-    const renderPass = new RenderPass(scene, camera);
-    composer.addPass(renderPass);
+    composer.addPass(new RenderPass(scene, camera));
 
-    const outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
-    outlinePass.edgeStrength = 3;
-    outlinePass.edgeGlow = 1;
-    outlinePass.visibleEdgeColor.set(0xffffff);
-    outlinePass.hiddenEdgeColor.set(0x190a05);
-    composer.addPass(outlinePass);
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.2, 0.85);
+    bloomPass.threshold = 0.9;
+    bloomPass.strength = 0.4;
+    bloomPass.radius = 0.5;
+    composer.addPass(bloomPass);
 
     const ambientLight = new THREE.AmbientLight(0x111122, 2);
     scene.add(ambientLight);
@@ -477,20 +474,67 @@
         if (camera.position.distanceTo(zoomOutTargetPosition) < 1) isZoomingOut = false;
       }
 
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(raycastTargets);
-      outlinePass.selectedObjects = [];
-      if (intersects.length > 0) {
-        const obj = intersects[0].object;
-        if (obj === earth.Atmosphere) outlinePass.selectedObjects = [earth.planet];
-        else if (obj === venus.Atmosphere) outlinePass.selectedObjects = [venus.planet];
-        else outlinePass.selectedObjects = [obj];
-      }
-
       controls.update();
       composer.render();
       labelRenderer.render(scene, camera);
       requestAnimationFrame(animate);
+    }
+
+    function createGaussianTexture(size, fwhm) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const sigma = fwhm / 2.3548;
+      const isig2 = 1.0 / (2.0 * sigma * sigma);
+      const center = (size - 1) / 2;
+      const imageData = ctx.createImageData(size, size);
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          const x = j - center;
+          const y = i - center;
+          const r2 = x * x + y * y;
+          const value = Math.exp(-r2 * isig2);
+          const index = (i * size + j) * 4;
+          imageData.data[index] = 255;
+          imageData.data[index + 1] = 255;
+          imageData.data[index + 2] = 255;
+          imageData.data[index + 3] = Math.min(255, Math.floor(value * 255));
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function createGlareTexture(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.1, 'rgba(255,255,255,0.9)');
+      gradient.addColorStop(0.4, 'rgba(255,180,50,0.3)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    const starTex = createGaussianTexture(64, 2.0);
+    const glareTex = createGlareTexture(128);
+
+    function bvToRGB(bv) {
+      if (bv < -0.3) return [0.62, 0.72, 1.0];
+      if (bv < 0.0)  return [0.82, 0.90, 1.0];
+      if (bv < 0.3)  return [1.0, 0.95, 0.8];
+      if (bv < 0.6)  return [1.0, 0.9, 0.6];
+      if (bv < 1.0)  return [1.0, 0.7, 0.4];
+      return [1.0, 0.5, 0.3];
     }
 
     async function loadStarNames() {
@@ -512,10 +556,9 @@
             starSearchList.push({ name: name.toLowerCase(), original: name, type: 'star', hip: hipId });
           }
         }
-        updateProgress(10, 'Имена загружены');
+        updateProgress(5, 'Имена загружены');
       } catch (err) {
         console.error('Имена не загружены:', err);
-        updateProgress(10, 'Без имён');
       }
     }
 
@@ -534,6 +577,7 @@
         updateProgress(85, 'Парсинг звёзд...');
         const positions = [];
         const colors = [];
+        const magnitudes = [];
         const lines = combinedText.split('\n');
         let starIndex = 0;
         for (let line of lines) {
@@ -542,6 +586,7 @@
           const cols = line.split(',');
           if (cols.length < 24) continue;
           const hip = cols[1]?.trim();
+          const bv = parseFloat(cols[6]) || 0.5;
           const ra = parseFloat(cols[17]);
           const dec = parseFloat(cols[18]);
           const dist = parseFloat(cols[19]);
@@ -551,8 +596,10 @@
           const z = parseFloat(cols[23]);
           if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(mag)) continue;
           positions.push(x, y, z);
-          const brightness = Math.max(0.3, 1.0 - mag / 8.0);
-          colors.push(brightness, brightness * 0.9, brightness * 0.7);
+          const [r, g, b] = bvToRGB(bv);
+          const brightness = 0.3 + 0.7 * (1.0 - mag / 10.0);
+          colors.push(r * brightness, g * brightness, b * brightness);
+          magnitudes.push(mag);
           if (hip && starNameToHip[hip]) {
             hipToStarIndex[hip] = starIndex;
           }
@@ -562,45 +609,132 @@
         const geom = new THREE.BufferGeometry();
         geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
         geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-        const mat = new THREE.ShaderMaterial({
+        geom.setAttribute('appMag', new THREE.BufferAttribute(new Float32Array(magnitudes), 1));
+
+        const starVertexShader = `
+          attribute vec3 color;
+          attribute float appMag;
+          varying vec3 vColor;
+          varying float vAlpha;
+          uniform float uMinSize;
+          uniform float uMaxSize;
+          uniform float uPixelRatio;
+          uniform float uFaintestMag;
+          uniform float uBrightnessScale;
+          uniform float uBrightnessBias;
+          void main() {
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            float alpha = max(0.0, (uFaintestMag - appMag) * uBrightnessScale + uBrightnessBias);
+            float size = 5.0 * exp(-0.4 * appMag * 2.302585);
+            size = clamp(size * uPixelRatio, uMinSize, uMaxSize);
+            gl_PointSize = size;
+            vColor = color;
+            vAlpha = alpha;
+          }
+        `;
+        const starFragmentShader = `
+          uniform sampler2D starTex;
+          varying vec3 vColor;
+          varying float vAlpha;
+          void main() {
+            vec4 texColor = texture2D(starTex, gl_PointCoord);
+            float alpha = texColor.a * vAlpha;
+            if (alpha < 0.01) discard;
+            gl_FragColor = vec4(vColor, alpha);
+          }
+        `;
+
+        const starMat = new THREE.ShaderMaterial({
           uniforms: {
-            uMinSize: { value: 6.0 },
-            uMaxSize: { value: 18.0 },
-            uPixelRatio: { value: renderer.getPixelRatio() }
+            starTex: { value: starTex },
+            uMinSize: { value: 1.5 },
+            uMaxSize: { value: 8.0 },
+            uPixelRatio: { value: renderer.getPixelRatio() },
+            uFaintestMag: { value: 8.0 },
+            uBrightnessScale: { value: 0.25 },
+            uBrightnessBias: { value: -0.5 }
           },
-          vertexShader: `
-            attribute vec3 color;
-            varying vec3 vColor;
-            uniform float uMinSize;
-            uniform float uMaxSize;
-            uniform float uPixelRatio;
-            void main() {
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_Position = projectionMatrix * mvPosition;
-              float dist = length(mvPosition.xyz);
-              float size = uMaxSize / (dist * 0.01 + 1.0);
-              size = clamp(size * uPixelRatio, uMinSize, uMaxSize);
-              gl_PointSize = size;
-              vColor = color;
-            }
-          `,
-          fragmentShader: `
-            varying vec3 vColor;
-            void main() {
-              vec2 cxy = 2.0 * gl_PointCoord - 1.0;
-              float r = dot(cxy, cxy);
-              if (r > 1.0) discard;
-              float alpha = 1.0 - r;
-              alpha = pow(alpha, 1.2);
-              gl_FragColor = vec4(vColor, alpha);
-            }
-          `,
+          vertexShader: starVertexShader,
+          fragmentShader: starFragmentShader,
           transparent: true,
           depthWrite: false,
           blending: THREE.AdditiveBlending
         });
-        starsPointCloud = new THREE.Points(geom, mat);
+        starsPointCloud = new THREE.Points(geom, starMat);
         scene.add(starsPointCloud);
+
+        const glareMagLimit = 1.0;
+        const glarePositions = [];
+        const glareColors = [];
+        const glareMags = [];
+        for (let i = 0; i < starIndex; i++) {
+          const mag = magnitudes[i];
+          if (mag < glareMagLimit) {
+            glarePositions.push(positions[i*3], positions[i*3+1], positions[i*3+2]);
+            glareColors.push(colors[i*3], colors[i*3+1], colors[i*3+2]);
+            glareMags.push(mag);
+          }
+        }
+        if (glarePositions.length > 0) {
+          const glareGeom = new THREE.BufferGeometry();
+          glareGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(glarePositions), 3));
+          glareGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(glareColors), 3));
+          glareGeom.setAttribute('appMag', new THREE.BufferAttribute(new Float32Array(glareMags), 1));
+
+          const glareVertexShader = `
+            attribute vec3 color;
+            attribute float appMag;
+            varying vec3 vColor;
+            varying float vAlpha;
+            uniform float uMinSize;
+            uniform float uMaxSize;
+            uniform float uPixelRatio;
+            uniform float uFaintestMag;
+            uniform float uBrightnessScale;
+            uniform float uBrightnessBias;
+            void main() {
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_Position = projectionMatrix * mvPosition;
+              float alpha = max(0.0, (uFaintestMag - appMag) * uBrightnessScale + uBrightnessBias);
+              float size = 15.0 * exp(-0.4 * appMag * 2.302585);
+              size = clamp(size * uPixelRatio, uMinSize, uMaxSize);
+              gl_PointSize = size;
+              vColor = color;
+              vAlpha = min(1.0, alpha * 2.0);
+            }
+          `;
+          const glareFragmentShader = `
+            uniform sampler2D glareTex;
+            varying vec3 vColor;
+            varying float vAlpha;
+            void main() {
+              vec4 texColor = texture2D(glareTex, gl_PointCoord);
+              float alpha = texColor.a * vAlpha;
+              if (alpha < 0.01) discard;
+              gl_FragColor = vec4(vColor * 1.2, alpha);
+            }
+          `;
+          const glareMat = new THREE.ShaderMaterial({
+            uniforms: {
+              glareTex: { value: glareTex },
+              uMinSize: { value: 3.0 },
+              uMaxSize: { value: 25.0 },
+              uPixelRatio: { value: renderer.getPixelRatio() },
+              uFaintestMag: { value: 2.0 },
+              uBrightnessScale: { value: 0.5 },
+              uBrightnessBias: { value: 0.0 }
+            },
+            vertexShader: glareVertexShader,
+            fragmentShader: glareFragmentShader,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+          });
+          glarePointCloud = new THREE.Points(glareGeom, glareMat);
+          scene.add(glarePointCloud);
+        }
+
         updateProgress(100, 'Готово');
         setupSearch();
         hideLoadingScreen();
