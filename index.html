@@ -9,6 +9,7 @@
     * { margin: 0; padding: 0; }
     html, body { overflow: hidden; font-family: 'Trispace', sans-serif; background: black; }
     canvas { display: block; }
+
     #loading {
       position: fixed; display: flex; width: 100%; height: 100%;
       color: white; justify-content: center; align-items: center;
@@ -36,6 +37,7 @@
       opacity: 0; animation: fadeIn 2s ease-in-out 2.5s forwards;
     }
     #loader-circle svg { animation: pulse 2s ease-in-out 4.5s infinite; }
+
     .planet-info {
       display: none; position: fixed; left: 1%; top: 25%; width: 30%; z-index: 20;
     }
@@ -50,6 +52,7 @@
     .close-btn:hover, .close-btn:focus { color: white; cursor: pointer; }
     h2 { color: lightyellow; }
     p { color: white; line-height: 1.5; }
+
     .btn-group {
       display: flex; position: absolute; top: 20px; justify-content: center;
       width: 100%; gap: 12px; fill: white; z-index: 10;
@@ -60,6 +63,27 @@
       transition: background 0.2s;
     }
     .btn-group button:hover { background: rgba(255,255,255,0.2); }
+
+    #search-container {
+      position: absolute; top: 80px; left: 20px; z-index: 20;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    #search-input {
+      width: 200px; padding: 6px 10px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.7);
+      color: white; font-size: 0.9rem; outline: none;
+    }
+    #search-input::placeholder { color: rgba(255,255,255,0.5); }
+    #autocomplete-list {
+      list-style: none; background: rgba(0,0,0,0.8); border-radius: 8px;
+      overflow-y: auto; max-height: 150px; width: 200px;
+      display: none; margin-top: 2px;
+    }
+    .autocomplete-item {
+      padding: 4px 8px; color: white; cursor: pointer;
+      font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .autocomplete-item:hover { background: rgba(255,255,255,0.2); }
   </style>
 </head>
 <body>
@@ -68,7 +92,7 @@
       <h1>Kosmos</h1>
       <p><span id="createdBy">создал</span> <span id="name">Dicstery</span></p>
       <div id="loader-progress">
-        <div id="loader-text">Загрузка звёзд...</div>
+        <div id="loader-text">Загрузка данных...</div>
         <div id="loader-percentage">0%</div>
       </div>
       <div id="loader">
@@ -93,6 +117,11 @@
     <button id="btn-paths">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path d="M12 2c-5.514 0-10 4.486-10 10s4.486 10 10 10 10-4.486 10-10-4.486-10-10-10zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-12h2v2h-2zm0 4h2v2h-2zm4-4h2v2h-2zm0 4h2v2h-2zm-8 0h2v2h-2zm0-4h2v2h-2z"/></svg>
     </button>
+  </div>
+
+  <div id="search-container">
+    <input type="text" id="search-input" placeholder="Поиск звёзд и планет..." autocomplete="off" />
+    <ul id="autocomplete-list"></ul>
   </div>
 
   <div id="planetInfo" class="planet-info">
@@ -139,6 +168,8 @@
     const loadingScreen = document.getElementById('loading');
 
     let starsPointCloud = null;
+    let starNames = [];
+    let starNameToHip = {};
 
     function updateProgress(percent, text = null) {
       progressBar.textContent = percent + '%';
@@ -480,17 +511,45 @@
       requestAnimationFrame(animate);
     }
 
+    async function loadStarNames() {
+      try {
+        updateProgress(0, 'Загрузка имён...');
+        const resp = await fetch('data/starnames.dat');
+        if (!resp.ok) throw new Error('Ошибка загрузки starnames.dat');
+        const text = await resp.text();
+        const lines = text.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const colonIndex = trimmed.indexOf(':');
+          if (colonIndex === -1) continue;
+          const hipId = trimmed.substring(0, colonIndex).trim();
+          const name = trimmed.substring(colonIndex + 1).trim();
+          if (name && hipId) {
+            starNames.push({ name: name.toLowerCase(), original: name, hip: hipId });
+            starNameToHip[name.toLowerCase()] = hipId;
+          }
+        }
+        updateProgress(30, 'Имена загружены');
+      } catch (err) {
+        console.error('Имена не загружены:', err);
+        updateProgress(30, 'Без имён');
+      }
+    }
+
     async function loadStarCatalog() {
       try {
-        const partNames = ['data/stars1.csv', 'data/stars2.csv', 'data/stars3.csv'];
+        await loadStarNames();
+        const partNames = ['data/stars1.dat', 'data/stars2.dat', 'data/stars3.dat'];
         let combinedText = '';
         for (let i = 0; i < partNames.length; i++) {
-          updateProgress(Math.round((i / partNames.length) * 100), `Загрузка части ${i+1}...`);
+          const progress = 30 + Math.round((i / partNames.length) * 60);
+          updateProgress(progress, `Загрузка части ${i+1}...`);
           const resp = await fetch(partNames[i]);
           if (!resp.ok) throw new Error(`Ошибка загрузки ${partNames[i]}`);
           combinedText += await resp.text();
         }
-        updateProgress(100, 'Парсинг звёзд...');
+        updateProgress(95, 'Парсинг звёзд...');
         const positions = [];
         const colors = [];
         const lines = combinedText.split('\n');
@@ -557,11 +616,95 @@
         starsPointCloud = new THREE.Points(geom, mat);
         scene.add(starsPointCloud);
         updateProgress(100, 'Готово');
+        setupSearch();
         hideLoadingScreen();
       } catch (err) {
         console.error(err);
-        updateProgress(0, 'Ошибка загрузки каталога');
+        updateProgress(0, 'Ошибка загрузки');
         hideLoadingScreen();
+      }
+    }
+
+    function setupSearch() {
+      const searchInput = document.getElementById('search-input');
+      const autocompleteList = document.getElementById('autocomplete-list');
+
+      const planetNames = Object.keys(planetData).map(n => ({
+        name: n.toLowerCase(),
+        original: n,
+        type: 'planet'
+      }));
+
+      const allTargets = [
+        ...planetNames,
+        ...starNames.map(s => ({ ...s, type: 'star' }))
+      ];
+
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase().trim();
+        if (query.length === 0) {
+          autocompleteList.style.display = 'none';
+          return;
+        }
+        const matches = allTargets.filter(t => t.name.startsWith(query)).slice(0, 10);
+        if (matches.length === 0) {
+          autocompleteList.style.display = 'none';
+          return;
+        }
+        autocompleteList.innerHTML = '';
+        matches.forEach(m => {
+          const li = document.createElement('li');
+          li.className = 'autocomplete-item';
+          li.textContent = m.original + (m.type === 'planet' ? ' (планета)' : '');
+          li.addEventListener('click', () => {
+            searchInput.value = m.original;
+            autocompleteList.style.display = 'none';
+            flyToTarget(m);
+          });
+          autocompleteList.appendChild(li);
+        });
+        autocompleteList.style.display = 'block';
+      });
+
+      searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          const query = searchInput.value.toLowerCase().trim();
+          const match = allTargets.find(t => t.name === query);
+          if (match) {
+            autocompleteList.style.display = 'none';
+            flyToTarget(match);
+          }
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target !== searchInput) {
+          autocompleteList.style.display = 'none';
+        }
+      });
+    }
+
+    function flyToTarget(target) {
+      if (target.type === 'planet') {
+        const planetObj = allPlanets.find(p => p.name === target.original);
+        if (planetObj) {
+          closeInfoNoZoomOut();
+          const pos = new THREE.Vector3();
+          planetObj.planet.getWorldPosition(pos);
+          controls.target.copy(pos);
+          let off = 10;
+          if (target.original === 'Sun') off = 50;
+          else if (target.original === 'Jupiter' || target.original === 'Saturn') off = 50;
+          else if (target.original === 'Venus' || target.original === 'Earth' || target.original === 'Uranus') off = 25;
+          else if (target.original === 'Mars') off = 15;
+          targetCameraPosition.copy(pos).add(camera.position.clone().sub(pos).normalize().multiplyScalar(off));
+          isMovingTowardsPlanet = true;
+          selectedPlanet = target.original;
+        }
+      } else if (target.type === 'star') {
+        const hipId = target.hip;
+        console.log('Летим к звезде:', target.original, 'HIP:', hipId);
+        alert('Полёт к звезде ' + target.original + ' (HIP ' + hipId + ') будет реализован после привязки HIP к координатам');
       }
     }
 
