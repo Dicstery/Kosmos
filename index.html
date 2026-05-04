@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Kosmos – Real Universe</title>
+  <title>Kosmos – Real Stars</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <style>
     * { margin: 0; padding: 0; }
@@ -60,12 +60,6 @@
       transition: background 0.2s;
     }
     .btn-group button:hover { background: rgba(255,255,255,0.2); }
-    .label {
-      color: white; font-weight: 200; font-size: 0.7rem; width: 80px;
-      text-align: center; pointer-events: none; display: flex;
-      justify-content: center; align-items: center; gap: 4px;
-      text-shadow: 0 0 6px black;
-    }
   </style>
 </head>
 <body>
@@ -74,7 +68,7 @@
       <h1>Kosmos</h1>
       <p><span id="createdBy">создал</span> <span id="name">Dicstery</span></p>
       <div id="loader-progress">
-        <div id="loader-text">Загрузка...</div>
+        <div id="loader-text">Загрузка звёзд...</div>
         <div id="loader-percentage">0%</div>
       </div>
       <div id="loader">
@@ -99,9 +93,6 @@
     <button id="btn-paths">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path d="M12 2c-5.514 0-10 4.486-10 10s4.486 10 10 10 10-4.486 10-10-4.486-10-10-10zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-12h2v2h-2zm0 4h2v2h-2zm4-4h2v2h-2zm0 4h2v2h-2zm-8 0h2v2h-2zm0-4h2v2h-2z"/></svg>
     </button>
-    <button id="btn-settings">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.92-3.32c-.12-.22-.38-.29-.57-.21l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.19-.08-.45-.01-.57.21l-1.92 3.32c-.12.18-.06.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.92 3.32c.12.22.38.29.57.21l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.23.41.47.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.19.08.45.01.57-.21l1.92-3.32c.11-.18.06-.42-.12-.56l-2.02-1.58zm-7.14 3.06c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
-    </button>
   </div>
 
   <div id="planetInfo" class="planet-info">
@@ -122,15 +113,13 @@
         "three/examples/jsm/postprocessing/RenderPass.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js",
         "three/examples/jsm/postprocessing/OutlinePass.js": "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutlinePass.js",
         "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
-        "three/examples/jsm/renderers/CSS2DRenderer.js": "https://unpkg.com/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js",
-        "dat.gui": "https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.module.js"
+        "three/examples/jsm/renderers/CSS2DRenderer.js": "https://unpkg.com/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js"
       }
     }
   </script>
 
   <script type="module">
     import * as THREE from 'three';
-    import * as dat from 'dat.gui';
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
     import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -149,18 +138,20 @@
     const progressText = document.getElementById('loader-text');
     const loadingScreen = document.getElementById('loading');
 
-    manager.onProgress = (url, loaded, total) => {
-      const pct = Math.round((loaded / total) * 100);
-      progressBar.textContent = pct + '%';
-    };
+    let starsPointCloud = null;
 
-    manager.onLoad = () => {
+    function updateProgress(percent, text = null) {
+      progressBar.textContent = percent + '%';
+      if (text) progressText.textContent = text;
+    }
+
+    function hideLoadingScreen() {
       progressText.textContent = 'Click to continue...';
       loadingScreen.style.cursor = 'pointer';
       loadingScreen.addEventListener('click', () => {
         loadingScreen.style.display = 'none';
       });
-    };
+    }
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000005);
@@ -217,35 +208,6 @@
     controls.target.set(0, 0, 0);
     controls.update();
 
-    const gui = new dat.GUI({ autoPlace: false });
-    const customContainer = document.createElement('div');
-    customContainer.id = 'gui-container';
-    customContainer.style.position = 'absolute';
-    customContainer.style.top = '100px';
-    customContainer.style.right = '10px';
-    customContainer.style.zIndex = '10';
-    document.body.appendChild(customContainer);
-    customContainer.appendChild(gui.domElement);
-    gui.hide();
-
-    const settings = {
-      accelerationOrbit: 1,
-      acceleration: 1,
-      sunIntensity: 2.2,
-      clock: true,
-      speed: 0.125,
-      showGalaxy: true,
-      showAsterisms: true
-    };
-
-    gui.add(settings, 'accelerationOrbit', 0, 10);
-    gui.add(settings, 'acceleration', 0, 10);
-    gui.add(settings, 'sunIntensity', 1, 10).onChange(val => { sunMat.emissiveIntensity = val; });
-    gui.add(settings, 'clock').name('Run').onChange(val => { if (val) clock.start(); else clock.stop(); });
-    gui.add(settings, 'speed', 0.02, 10, 0.1).name('Speed');
-    gui.add(settings, 'showGalaxy').name('Milky Way');
-    gui.add(settings, 'showAsterisms').name('Asterisms');
-
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -287,14 +249,12 @@
 
     window.closeInfo = function() {
       document.getElementById('planetInfo').style.display = 'none';
-      settings.accelerationOrbit = 1;
       isZoomingOut = true;
       controls.target.set(0, 0, 0);
     };
 
     function closeInfoNoZoomOut() {
       document.getElementById('planetInfo').style.display = 'none';
-      settings.accelerationOrbit = 1;
     }
 
     const earthNightTex = textureLoader.load('images/textures/earth_nightmap.jpg');
@@ -385,7 +345,7 @@
 
     const sunSize = 697/40;
     const sunGeom = new THREE.SphereGeometry(sunSize, 64, 64);
-    const sunMat = new THREE.MeshStandardMaterial({ emissive: 0xFFF88F, emissiveMap: textureLoader.load('images/textures/sun.jpg'), emissiveIntensity: settings.sunIntensity });
+    const sunMat = new THREE.MeshStandardMaterial({ emissive: 0xFFF88F, emissiveMap: textureLoader.load('images/textures/sun.jpg'), emissiveIntensity: 2.2 });
     const sun = new THREE.Mesh(sunGeom, sunMat);
     sun.name = 'Sun'; scene.add(sun);
 
@@ -406,181 +366,6 @@
     addMoon(jupiter, { size: 1.3, texture: 'images/textures/callisto.jpg', orbitRadius: 32, orbitSpeed: 0.00006 });
     addMoon(saturn, { size: 1.4, texture: 'images/textures/titan.webp', orbitRadius: 36, orbitSpeed: 0.00008 });
     addMoon(neptune, { size: 1.1, texture: 'images/textures/triton.jpg', orbitRadius: 14, orbitSpeed: 0.00004 });
-
-    const galaxyGroup = new THREE.Group();
-    galaxyGroup.position.set(8500, 0, 0);
-    scene.add(galaxyGroup);
-
-    function createGlowTexture() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gradient.addColorStop(0, 'rgba(255,255,255,1)');
-      gradient.addColorStop(0.15, 'rgba(255,255,200,0.9)');
-      gradient.addColorStop(0.5, 'rgba(255,180,50,0.3)');
-      gradient.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 64, 64);
-      return new THREE.CanvasTexture(canvas);
-    }
-
-    const glowTex = createGlowTexture();
-
-    function generateSpiralGalaxy(count, discRadius, discHeight, bulgeRadius, arms, twist) {
-      const positions = new Float32Array(count * 3);
-      const colors = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) {
-        const r = Math.pow(Math.random(), 1.6) * discRadius;
-        const armIndex = Math.floor(Math.random() * arms);
-        const baseAngle = (armIndex / arms) * Math.PI * 2;
-        const spiralAngle = twist * Math.log(r / 500 + 1);
-        const scatterAngle = (Math.random() - 0.5) * 0.6;
-        const angle = baseAngle + spiralAngle + scatterAngle;
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
-        let y = (Math.random() - 0.5) * discHeight * Math.exp(-r / discRadius);
-        if (r < bulgeRadius) {
-          const factor = 1 - r / bulgeRadius;
-          y += (Math.random() - 0.5) * bulgeRadius * factor * 0.5;
-        }
-        positions[i*3] = x;
-        positions[i*3+1] = y;
-        positions[i*3+2] = z;
-        const dist = Math.sqrt(x*x + y*y + z*z);
-        const core = Math.max(0, 1 - dist / bulgeRadius);
-        const hue = core > 0.5 ? 0.12 : 0.08 + 0.1 * Math.random();
-        const color = new THREE.Color();
-        color.setHSL(hue, 0.5, 0.5 + core * 0.4 + Math.random() * 0.2);
-        colors[i*3] = color.r; colors[i*3+1] = color.g; colors[i*3+2] = color.b;
-      }
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      const mat = new THREE.PointsMaterial({ size: 6, map: glowTex, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 });
-      const points = new THREE.Points(geom, mat);
-      galaxyGroup.add(points);
-      return points;
-    }
-
-    function createCentralBulge() {
-      const bulgeGeom = new THREE.SphereGeometry(2800, 32, 32);
-      const bulgeMat = new THREE.ShaderMaterial({
-        uniforms: { uTime: { value: 0 } },
-        vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main() { vNormal = normalize(normalMatrix * normal); vPosition = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-        fragmentShader: `varying vec3 vNormal; varying vec3 vPosition; uniform float uTime; void main() { float dist = length(vPosition) / 2800.0; float glow = exp(-dist * 1.8) * 1.2; vec3 col = mix(vec3(1.0,0.95,0.7), vec3(1.0,0.7,0.3), dist) * glow; float alpha = glow * 0.9; gl_FragColor = vec4(col, alpha); }`,
-        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-      });
-      const bulge = new THREE.Mesh(bulgeGeom, bulgeMat);
-      galaxyGroup.add(bulge);
-      return bulge;
-    }
-
-    function createGlobularClusters(haloRadius, count, glowTex) {
-      const clusters = [];
-      for (let i = 0; i < count; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const dist = 8000 + Math.random() * haloRadius;
-        const cx = Math.sin(phi) * Math.cos(theta) * dist;
-        const cy = Math.sin(phi) * Math.sin(theta) * dist;
-        const cz = Math.cos(phi) * dist;
-        const starCount = 200 + Math.floor(Math.random() * 300);
-        const pos = new Float32Array(starCount * 3);
-        const col = new Float32Array(starCount * 3);
-        for (let j = 0; j < starCount; j++) {
-          const t = Math.random() * Math.PI * 2;
-          const p = Math.acos(2 * Math.random() - 1);
-          const rad = Math.random() * 250;
-          pos[j*3] = cx + Math.sin(p) * Math.cos(t) * rad;
-          pos[j*3+1] = cy + Math.sin(p) * Math.sin(t) * rad;
-          pos[j*3+2] = cz + Math.cos(p) * rad;
-          const c = new THREE.Color();
-          c.setHSL(0.12, 0.5, 0.5 + Math.random() * 0.4);
-          col[j*3] = c.r; col[j*3+1] = c.g; col[j*3+2] = c.b;
-        }
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        const mat = new THREE.PointsMaterial({ size: 12, map: glowTex, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.7 });
-        const cluster = new THREE.Points(geom, mat);
-        galaxyGroup.add(cluster);
-        clusters.push(cluster);
-      }
-      return clusters;
-    }
-
-    const spiralGalaxy = generateSpiralGalaxy(30000, 15000, 800, 3500, 4, 6.0);
-    const centralBulge = createCentralBulge();
-    const globularClusters = createGlobularClusters(20000, 25, glowTex);
-
-    const asterismGroup = new THREE.Group();
-    scene.add(asterismGroup);
-
-    async function loadAsterisms() {
-      try {
-        const [respQCQ, respFence] = await Promise.all([
-          fetch('data/asterisms_qcq.txt'),
-          fetch('data/asterisms_fence.txt')
-        ]);
-        const textQCQ = await respQCQ.text();
-        const textFence = await respFence.text();
-        const parseCSV = (text) => {
-          const lines = text.split('\n').filter(line => line.trim() && !line.startsWith('"Name'));
-          return lines.map(line => {
-            const parts = line.split(',');
-            if (parts.length < 5) return null;
-            const name = parts[0].replace(/"/g, '').trim();
-            const ra = parts[2].replace(/"/g, '').trim();
-            const dec = parts[3].replace(/"/g, '').trim();
-            const mag = parseFloat(parts[4]) || 5;
-            return { name, ra, dec, mag };
-          }).filter(Boolean);
-        };
-        const parseFence = (text) => {
-          const lines = text.split('\n').filter(line => line.trim() && !line.startsWith('|Name'));
-          return lines.map(line => {
-            const parts = line.split('|');
-            if (parts.length < 5) return null;
-            const name = parts[0].trim();
-            const ra = parts[2].trim();
-            const dec = parts[3].trim();
-            const mag = parseFloat(parts[4]) || 5;
-            return { name, ra, dec, mag };
-          }).filter(Boolean);
-        };
-        const asterisms = [...parseCSV(textQCQ), ...parseFence(textFence)];
-        const radius = 12000;
-        asterisms.forEach(ast => {
-          const [raH, raM] = ast.ra.split(' ').map(Number);
-          const raDeg = (raH + raM / 60) * 15;
-          const [decD, decM] = ast.dec.split(' ').map(Number);
-          const decDeg = (Math.abs(decD) + decM / 60) * (decD < 0 ? -1 : 1);
-          const phi = (90 - decDeg) * Math.PI / 180;
-          const theta = raDeg * Math.PI / 180;
-          const pos = new THREE.Vector3(
-            radius * Math.sin(phi) * Math.cos(theta),
-            radius * Math.cos(phi),
-            radius * Math.sin(phi) * Math.sin(theta)
-          );
-          const dotGeom = new THREE.SphereGeometry(15, 8, 8);
-          const dotMat = new THREE.MeshBasicMaterial({ color: 0xffdd88 });
-          const dot = new THREE.Mesh(dotGeom, dotMat);
-          dot.position.copy(pos);
-          asterismGroup.add(dot);
-          const div = document.createElement('div');
-          div.className = 'label';
-          div.textContent = ast.name;
-          const label = new CSS2DObject(div);
-          label.position.copy(pos.clone().multiplyScalar(1.02));
-          asterismGroup.add(label);
-        });
-      } catch (e) {
-        console.warn('Asterisms not loaded:', e);
-      }
-    }
-
-    loadAsterisms();
 
     const raycastTargets = [
       mercury.planet, venus.planet, venus.Atmosphere, earth.planet, earth.Atmosphere,
@@ -604,7 +389,6 @@
         }
         if (planetObj) {
           closeInfoNoZoomOut();
-          settings.accelerationOrbit = 0;
           const pos = new THREE.Vector3();
           planetObj.planet.getWorldPosition(pos);
           controls.target.copy(pos);
@@ -624,32 +408,32 @@
     let elapsedTime = 0;
 
     function animate() {
-      elapsedTime += clock.getDelta() * settings.speed;
+      elapsedTime += clock.getDelta() * 0.125;
 
       if (jupiter.planet.material.uniforms) jupiter.planet.material.uniforms.time.value = elapsedTime;
       if (saturn.planet.material.uniforms) saturn.planet.material.uniforms.time.value = elapsedTime;
 
-      sun.rotateY(0.001 * settings.acceleration);
-      mercury.planet.rotateY(0.001 * settings.acceleration);
-      mercury.planet3d.rotateY(0.004 * settings.accelerationOrbit);
-      venus.planet.rotateY(0.0005 * settings.acceleration);
-      if (venus.Atmosphere) venus.Atmosphere.rotateY(0.0005 * settings.acceleration);
-      venus.planet3d.rotateY(0.0006 * settings.accelerationOrbit);
-      earth.planet.rotateY(0.005 * settings.acceleration);
-      if (earth.Atmosphere) earth.Atmosphere.rotateY(0.001 * settings.acceleration);
-      earth.planet3d.rotateY(0.001 * settings.accelerationOrbit);
-      mars.planet.rotateY(0.01 * settings.acceleration);
-      mars.planet3d.rotateY(0.0007 * settings.accelerationOrbit);
-      jupiter.planet.rotateY(0.005 * settings.acceleration);
-      jupiter.planet3d.rotateY(0.0003 * settings.accelerationOrbit);
-      saturn.planet.rotateY(0.01 * settings.acceleration);
-      saturn.planet3d.rotateY(0.0002 * settings.accelerationOrbit);
-      uranus.planet.rotateY(0.005 * settings.acceleration);
-      uranus.planet3d.rotateY(0.0001 * settings.accelerationOrbit);
-      neptune.planet.rotateY(0.005 * settings.acceleration);
-      neptune.planet3d.rotateY(0.00008 * settings.accelerationOrbit);
-      pluto.planet.rotateY(0.001 * settings.acceleration);
-      pluto.planet3d.rotateY(0.00006 * settings.accelerationOrbit);
+      sun.rotateY(0.001);
+      mercury.planet.rotateY(0.001);
+      mercury.planet3d.rotateY(0.004);
+      venus.planet.rotateY(0.0005);
+      if (venus.Atmosphere) venus.Atmosphere.rotateY(0.0005);
+      venus.planet3d.rotateY(0.0006);
+      earth.planet.rotateY(0.005);
+      if (earth.Atmosphere) earth.Atmosphere.rotateY(0.001);
+      earth.planet3d.rotateY(0.001);
+      mars.planet.rotateY(0.01);
+      mars.planet3d.rotateY(0.0007);
+      jupiter.planet.rotateY(0.005);
+      jupiter.planet3d.rotateY(0.0003);
+      saturn.planet.rotateY(0.01);
+      saturn.planet3d.rotateY(0.0002);
+      uranus.planet.rotateY(0.005);
+      uranus.planet3d.rotateY(0.0001);
+      neptune.planet.rotateY(0.005);
+      neptune.planet3d.rotateY(0.00008);
+      pluto.planet.rotateY(0.001);
+      pluto.planet3d.rotateY(0.00006);
 
       if (earth.moons) {
         earth.moons.forEach(moon => {
@@ -668,9 +452,6 @@
         moon.mesh.position.z = Math.sin(time * moon.orbitSpeed) * moon.orbitRadius;
         moon.mesh.rotateY(0.01);
       });
-
-      galaxyGroup.visible = settings.showGalaxy;
-      asterismGroup.visible = settings.showAsterisms;
 
       if (isMovingTowardsPlanet) {
         camera.position.lerp(targetCameraPosition, 0.03);
@@ -699,6 +480,64 @@
       requestAnimationFrame(animate);
     }
 
+    async function loadStarCatalog() {
+      try {
+        const partNames = ['data/stars1.csv', 'data/stars2.csv', 'data/stars3.csv'];
+        let combinedText = '';
+        for (let i = 0; i < partNames.length; i++) {
+          updateProgress(Math.round((i / partNames.length) * 100), `Загрузка части ${i+1}...`);
+          const resp = await fetch(partNames[i]);
+          if (!resp.ok) throw new Error(`Ошибка загрузки ${partNames[i]}`);
+          combinedText += await resp.text();
+        }
+        updateProgress(100, 'Парсинг звёзд...');
+        const positions = [];
+        const colors = [];
+        const lines = combinedText.split('\n');
+        for (let line of lines) {
+          line = line.trim();
+          if (line.startsWith('id,') || line === '') continue;
+          const cols = line.split(',');
+          if (cols.length < 8) continue;
+          const ra = parseFloat(cols[1]);
+          const dec = parseFloat(cols[2]);
+          const dist = parseFloat(cols[3]);
+          const mag = parseFloat(cols[4]);
+          if (isNaN(ra) || isNaN(dec) || isNaN(dist) || isNaN(mag)) continue;
+          const raRad = ra * Math.PI / 180;
+          const decRad = dec * Math.PI / 180;
+          const x = dist * Math.cos(decRad) * Math.cos(raRad);
+          const y = dist * Math.sin(decRad);
+          const z = dist * Math.cos(decRad) * Math.sin(raRad);
+          positions.push(x, y, z);
+          const brightness = Math.max(0.2, 1.0 - mag / 10.0);
+          colors.push(brightness, brightness * 0.9, brightness * 0.7);
+        }
+        if (positions.length === 0) throw new Error('Нет данных звёзд');
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+        const mat = new THREE.PointsMaterial({
+          size: 0.5,
+          vertexColors: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          transparent: true,
+          opacity: 0.9
+        });
+        starsPointCloud = new THREE.Points(geom, mat);
+        scene.add(starsPointCloud);
+        updateProgress(100, 'Готово');
+        hideLoadingScreen();
+      } catch (err) {
+        console.error(err);
+        updateProgress(0, 'Ошибка загрузки каталога');
+        hideLoadingScreen();
+      }
+    }
+
+    loadStarCatalog();
+
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('resize', () => {
@@ -717,9 +556,6 @@
       allPlanets.forEach(p => {
         if (p.planet3d.children[0]?.children[1]) p.planet3d.children[0].children[1].visible = visible;
       });
-    });
-    document.getElementById('btn-settings').addEventListener('click', () => {
-      gui.show(gui._hidden);
     });
 
     animate();
