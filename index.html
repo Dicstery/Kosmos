@@ -156,7 +156,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000005);
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100000);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1e12);
     camera.position.set(0, 200, 400);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -204,7 +204,7 @@
     controls.enableDamping = true;
     controls.dampingFactor = 0.75;
     controls.screenSpacePanning = false;
-    controls.maxDistance = 50000;
+    controls.maxDistance = 1e12;
     controls.target.set(0, 0, 0);
     controls.update();
 
@@ -517,13 +517,42 @@
         const geom = new THREE.BufferGeometry();
         geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
         geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-        const mat = new THREE.PointsMaterial({
-          size: 0.5,
-          vertexColors: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
+        const mat = new THREE.ShaderMaterial({
+          uniforms: {
+            uMinSize: { value: 2.0 },
+            uMaxSize: { value: 12.0 },
+            uPixelRatio: { value: renderer.getPixelRatio() }
+          },
+          vertexShader: `
+            attribute vec3 color;
+            varying vec3 vColor;
+            uniform float uMinSize;
+            uniform float uMaxSize;
+            uniform float uPixelRatio;
+            void main() {
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_Position = projectionMatrix * mvPosition;
+              float dist = length(mvPosition.xyz);
+              float size = uMaxSize / dist;
+              size = clamp(size * uPixelRatio, uMinSize, uMaxSize);
+              gl_PointSize = size;
+              vColor = color;
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vColor;
+            void main() {
+              vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+              float r = dot(cxy, cxy);
+              if (r > 1.0) discard;
+              float alpha = 1.0 - r;
+              alpha = pow(alpha, 1.5);
+              gl_FragColor = vec4(vColor, alpha);
+            }
+          `,
           transparent: true,
-          opacity: 0.9
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
         });
         starsPointCloud = new THREE.Points(geom, mat);
         scene.add(starsPointCloud);
