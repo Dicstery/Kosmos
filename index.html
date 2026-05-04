@@ -210,23 +210,8 @@
     outlinePass.hiddenEdgeColor.set(0x190a05);
     composer.addPass(outlinePass);
 
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-    bloomPass.threshold = 0.6;
-    bloomPass.strength = 1.2;
-    bloomPass.radius = 0.8;
-    composer.addPass(bloomPass);
-
-    const ambientLight = new THREE.AmbientLight(0x111122, 4);
+    const ambientLight = new THREE.AmbientLight(0x111122, 2);
     scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xFDFFD3, 2200, 600, 1.2);
-    pointLight.castShadow = true;
-    pointLight.shadow.mapSize.width = 2048;
-    pointLight.shadow.mapSize.height = 2048;
-    pointLight.shadow.camera.near = 1;
-    pointLight.shadow.camera.far = 1000;
-    pointLight.shadow.bias = -0.0005;
-    pointLight.shadow.radius = 2;
-    scene.add(pointLight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -373,7 +358,7 @@
 
     const sunSize = 697/40;
     const sunGeom = new THREE.SphereGeometry(sunSize, 64, 64);
-    const sunMat = new THREE.MeshStandardMaterial({ emissive: 0xFFF88F, emissiveMap: textureLoader.load('images/textures/sun.jpg'), emissiveIntensity: 2.2 });
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xFFF88F, map: textureLoader.load('images/textures/sun.jpg') });
     const sun = new THREE.Mesh(sunGeom, sunMat);
     sun.name = 'Sun'; scene.add(sun);
 
@@ -482,13 +467,13 @@
       });
 
       if (isMovingTowardsPlanet) {
-        camera.position.lerp(targetCameraPosition, 0.03);
+        camera.position.lerp(targetCameraPosition, 0.2);
         if (camera.position.distanceTo(targetCameraPosition) < 1) {
           isMovingTowardsPlanet = false;
           showPlanetInfo(selectedPlanet);
         }
       } else if (isZoomingOut) {
-        camera.position.lerp(zoomOutTargetPosition, 0.05);
+        camera.position.lerp(zoomOutTargetPosition, 0.2);
         if (camera.position.distanceTo(zoomOutTargetPosition) < 1) isZoomingOut = false;
       }
 
@@ -555,7 +540,7 @@
           line = line.trim();
           if (line.startsWith('id,') || line === '') continue;
           const cols = line.split(',');
-          if (cols.length < 18) continue;
+          if (cols.length < 24) continue;
           const hip = cols[1]?.trim();
           const ra = parseFloat(cols[17]);
           const dec = parseFloat(cols[18]);
@@ -566,7 +551,7 @@
           const z = parseFloat(cols[23]);
           if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(mag)) continue;
           positions.push(x, y, z);
-          const brightness = Math.max(0.15, 1.0 - mag / 10.0);
+          const brightness = Math.max(0.3, 1.0 - mag / 8.0);
           colors.push(brightness, brightness * 0.9, brightness * 0.7);
           if (hip && starNameToHip[hip]) {
             hipToStarIndex[hip] = starIndex;
@@ -579,8 +564,8 @@
         geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
         const mat = new THREE.ShaderMaterial({
           uniforms: {
-            uMinSize: { value: 2.0 },
-            uMaxSize: { value: 12.0 },
+            uMinSize: { value: 6.0 },
+            uMaxSize: { value: 18.0 },
             uPixelRatio: { value: renderer.getPixelRatio() }
           },
           vertexShader: `
@@ -593,7 +578,7 @@
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
               gl_Position = projectionMatrix * mvPosition;
               float dist = length(mvPosition.xyz);
-              float size = uMaxSize / dist;
+              float size = uMaxSize / (dist * 0.01 + 1.0);
               size = clamp(size * uPixelRatio, uMinSize, uMaxSize);
               gl_PointSize = size;
               vColor = color;
@@ -606,7 +591,7 @@
               float r = dot(cxy, cxy);
               if (r > 1.0) discard;
               float alpha = 1.0 - r;
-              alpha = pow(alpha, 1.5);
+              alpha = pow(alpha, 1.2);
               gl_FragColor = vec4(vColor, alpha);
             }
           `,
@@ -707,7 +692,7 @@
           const idx = starIdx * 3;
           const starPos = new THREE.Vector3(positions[idx], positions[idx+1], positions[idx+2]);
           controls.target.copy(starPos);
-          targetCameraPosition.copy(starPos).add(camera.position.clone().sub(starPos).normalize().multiplyScalar(starPos.length() * 0.5 + 10));
+          targetCameraPosition.copy(starPos).add(camera.position.clone().sub(starPos).normalize().multiplyScalar(starPos.length() * 0.1 + 5));
           isMovingTowardsPlanet = true;
           selectedPlanet = target.original;
           closeInfoNoZoomOut();
@@ -728,7 +713,7 @@
     });
 
     document.getElementById('btn-ambient').addEventListener('click', () => {
-      ambientLight.intensity = ambientLight.intensity === 4 ? 1 : 4;
+      ambientLight.intensity = ambientLight.intensity === 2 ? 0.5 : 2;
     });
     document.getElementById('btn-paths').addEventListener('click', () => {
       const visible = !allPlanets[0]?.planet3d.children[0]?.children[1]?.visible;
